@@ -1,13 +1,16 @@
-package io.hhplus.tdd.point
+package io.hhplus.tdd.point.application
 
-import io.hhplus.tdd.database.PointHistoryTable
-import io.hhplus.tdd.database.UserPointTable
+import io.hhplus.tdd.point.domain.PointHistory
+import io.hhplus.tdd.point.domain.TransactionType
+import io.hhplus.tdd.point.domain.UserPoint
+import io.hhplus.tdd.point.infrastructure.PointHistoryRepository
+import io.hhplus.tdd.point.infrastructure.UserPointRepository
 import org.springframework.stereotype.Service
 
 @Service
 class PointService (
-    private val userPointTable: UserPointTable,
-    private val pointHistoryTable: PointHistoryTable
+    private val userPointRepository: UserPointRepository,
+    private val pointHistoryRepository: PointHistoryRepository
 ) {
     /**
      * 유저 ID로 포인트 조회
@@ -15,7 +18,7 @@ class PointService (
     fun getPointByUserId (
         id: Long
     ): UserPoint {
-        return userPointTable.selectById(id)
+        return userPointRepository.getById(id)
     }
 
     /**
@@ -24,7 +27,7 @@ class PointService (
     fun getPointHistoryListByUserId (
         id: Long
     ): List<PointHistory> {
-        return pointHistoryTable.selectAllByUserId(id)
+        return pointHistoryRepository.getAllByUserId(id)
     }
 
     /************************************************************************************
@@ -69,10 +72,10 @@ class PointService (
             }
         }
 
-        val userPoint = userPointTable.selectById(id)
+        val userPoint = userPointRepository.getById(id)
         val result: Long = userPoint.point + amount
-        pointHistoryTable.insert(id, amount, TransactionType.CHARGE, System.currentTimeMillis())
-        return userPointTable.insertOrUpdate(userPoint.id, result)
+        pointHistoryRepository.save(id, amount, TransactionType.CHARGE, System.currentTimeMillis())
+        return userPointRepository.saveOrUpdate(userPoint.id, result)
     }
 
     /**
@@ -82,14 +85,14 @@ class PointService (
         id: Long,
         amount: Long
     ): UserPoint {
-        val userPoint = userPointTable.selectById(id)
+        val userPoint = userPointRepository.getById(id)
         when {
             userPoint.point < amount -> {
                 throw RuntimeException("사용 가능한 포인트가 부족합니다.")
             }
         }
         val result: Long = userPoint.point - amount
-        pointHistoryTable.insert(id, amount, TransactionType.USE, System.currentTimeMillis())
-        return userPointTable.insertOrUpdate(userPoint.id, result)
+        pointHistoryRepository.save(id, amount, TransactionType.USE, System.currentTimeMillis())
+        return userPointRepository.saveOrUpdate(userPoint.id, result)
     }
 }

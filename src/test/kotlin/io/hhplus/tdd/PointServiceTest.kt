@@ -8,6 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.BDDMockito.given
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -27,75 +28,73 @@ class PointServiceTest {
     @Mock
     private lateinit var userPointRepository: UserPointRepository
 
-    @Mock
-    private lateinit var pointHistoryRepository: PointHistoryRepository
-
     @Test
     fun `포인트 충전을 성공한다`() {
-        // given
-        val userId1: Long = 1
-        val userId2: Long = 2
+        // Given
+        val expectedResult = UserPoint(1, 5000L, System.currentTimeMillis())
+        given(userPointRepository.getById(1)).willReturn(UserPoint(1, 0, System.currentTimeMillis()))
+        given(userPointRepository.saveOrUpdate(1, 5000L)).willReturn(expectedResult)
 
-        // when
-        val result1 = sut.charge(userId1, 5000L)
-        val result2 = sut.charge(userId2, 99999L)
+        // When
+        val acutalResult= sut.charge(1, 5000)
 
-        // then
-        assertThat(result1.id).isEqualTo(userId1)
-        assertThat(result2.id).isEqualTo(userId2)
-        assertThat(result1.point).isEqualTo(5000)
-        assertThat(result2.point).isEqualTo(99999)
+        // Then
+        assertThat(acutalResult.id).isEqualTo(expectedResult.id)
+        assertThat(acutalResult.point).isEqualTo(expectedResult.point)
     }
 
     @Test
     fun `충전 금액이 0보다 작거나 같으면 포인트 충전을 실패한다`() {
-        // given
-        val userId: Long = 3
+        // Given
+        given(userPointRepository.getById(2)).willReturn(UserPoint(2, 0, System.currentTimeMillis()))
 
-        // when/Then
+        // When/Then
         assertThrows<RuntimeException> {
-            sut.charge(userId, 0)
+            sut.charge(2, 0)
         }
 
-        // when/Then
+        // When/Then
         assertThrows<RuntimeException> {
-            sut.charge(userId, -1000)
+            sut.charge(2, -1000)
         }
 
-        // when
-        val result: UserPoint = sut.getPointByUserId(userId)
-        // then
-        assertThat(result.point).isEqualTo(0)
+        // When
+        val acutalResult: UserPoint = sut.getPointByUserId(2)
+        // Then
+        assertThat(acutalResult.point).isEqualTo(0)
     }
 
     @Test
     fun `포인트 사용을 성공한다` () {
-        // given
-        val userId: Long = 4
-        sut.charge(userId, 5000L)
+        // Given
+        val defaultDate = System.currentTimeMillis();
+        val useDate = System.currentTimeMillis();
+        val expectedResult = UserPoint(3, 5000L, useDate)
+        given(userPointRepository.getById(3)).willReturn(UserPoint(3, 10000, defaultDate))
+        given(userPointRepository.saveOrUpdate(3, 5000L)).willReturn(expectedResult)
 
-        // when
-        val result = sut.use(userId, 3000L)
+        // When
+        val acutalResult = sut.use(3, 5000L)
 
         // Then
-        assertThat(result.id).isEqualTo(userId)
-        assertThat(result.point).isEqualTo(2000L)
+        assertThat(acutalResult.id).isEqualTo(3)
+        assertThat(acutalResult.point).isEqualTo(5000L)
     }
 
     @Test
     fun `충전된 포인트보다 많은 금액 사용을 요청하면 실패한다` () {
-        // given
-        val userId: Long = 5
-        sut.charge(userId, 5000L)
+        // Given
+        val defaultDate = System.currentTimeMillis()
+        given(userPointRepository.getById(4)).willReturn(UserPoint(4, 10000, defaultDate))
 
-        // when/Then
+        // When/Then
         assertThrows<RuntimeException> {
-            sut.use(userId, 8000L)
+            sut.use(4, 20000)
         }
 
-        // 추가 검증
-        val result: UserPoint = sut.getPointByUserId(userId)
-        // 사용하다 실패 => 원래 금액 5000원
-        assertThat(result.point).isEqualTo(5000L)
+        // When
+        val result: UserPoint = sut.getPointByUserId(4)
+        // Then
+        assertThat(result.point).isEqualTo(10000)
     }
 }
